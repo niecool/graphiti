@@ -122,5 +122,28 @@ async def test_create_batch_processes_multiple_inputs(
     ]
 
 
+@pytest.mark.asyncio
+async def test_create_batch_limits_request_size(
+    openai_embedder: OpenAIEmbedder, mock_openai_client: Any
+) -> None:
+    """Test that create_batch splits requests to respect provider limits."""
+    input_batch = [f'Input {index}' for index in range(11)]
+    responses = []
+    for start in range(0, len(input_batch), openai_embedder.config.embedding_batch_size):
+        batch = input_batch[start : start + openai_embedder.config.embedding_batch_size]
+        response = MagicMock()
+        response.data = [create_openai_embedding(0.1 + index) for index in range(len(batch))]
+        responses.append(response)
+
+    mock_openai_client.embeddings.create.side_effect = responses
+
+    result = await openai_embedder.create_batch(input_batch)
+
+    assert mock_openai_client.embeddings.create.await_count == 2
+    assert mock_openai_client.embeddings.create.call_args_list[0].kwargs['input'] == input_batch[:10]
+    assert mock_openai_client.embeddings.create.call_args_list[1].kwargs['input'] == [input_batch[10]]
+    assert len(result) == 11
+
+
 if __name__ == '__main__':
     pytest.main(['-xvs', __file__])

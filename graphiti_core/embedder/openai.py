@@ -22,10 +22,12 @@ from openai.types import EmbeddingModel
 from .client import EmbedderClient, EmbedderConfig
 
 DEFAULT_EMBEDDING_MODEL = 'text-embedding-3-small'
+DEFAULT_EMBEDDING_BATCH_SIZE = 10
 
 
 class OpenAIEmbedderConfig(EmbedderConfig):
     embedding_model: EmbeddingModel | str = DEFAULT_EMBEDDING_MODEL
+    embedding_batch_size: int = DEFAULT_EMBEDDING_BATCH_SIZE
     api_key: str | None = None
     base_url: str | None = None
 
@@ -60,7 +62,17 @@ class OpenAIEmbedder(EmbedderClient):
         return result.data[0].embedding[: self.config.embedding_dim]
 
     async def create_batch(self, input_data_list: list[str]) -> list[list[float]]:
-        result = await self.client.embeddings.create(
-            input=input_data_list, model=self.config.embedding_model
-        )
-        return [embedding.embedding[: self.config.embedding_dim] for embedding in result.data]
+        if not input_data_list:
+            return []
+
+        batch_size = max(1, self.config.embedding_batch_size)
+        embeddings: list[list[float]] = []
+        for start in range(0, len(input_data_list), batch_size):
+            batch = input_data_list[start : start + batch_size]
+            result = await self.client.embeddings.create(
+                input=batch, model=self.config.embedding_model
+            )
+            embeddings.extend(
+                embedding.embedding[: self.config.embedding_dim] for embedding in result.data
+            )
+        return embeddings

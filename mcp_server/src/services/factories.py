@@ -102,7 +102,7 @@ def is_non_openai_provider(base_url: str | None) -> bool:
         return False
 
     # OpenAI's official endpoints
-    openai_domains = ['api.openai.com', 'openai.azure.com']
+    openai_domains = ['api.openai.com', 'openai.azure.com', 'ai-gateway.rta-os.com']
 
     # Check if base_url contains any official OpenAI domain
     return not any(domain in base_url for domain in openai_domains)
